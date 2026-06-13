@@ -37,6 +37,7 @@ import PengajarDashboard from './pages/pengajar/PengajarDashboard';
 import AbsensiPengajar from './pages/pengajar/AbsensiPengajar';
 import TahfidzPengajar from './pages/pengajar/TahfidzPengajar';
 import AgendaPengajar from './pages/pengajar/AgendaPengajar';
+import NaikkanTingkat from './pages/pengajar/NaikkanTingkat';
 
 // Wali Pages
 import WaliDashboard from './pages/wali/WaliDashboard';
@@ -117,6 +118,7 @@ function AppContent() {
             <Route index element={<PengajarDashboard />} />
             <Route path="absensi" element={<AbsensiPengajar />} />
             <Route path="tahfidz" element={<TahfidzPengajar />} />
+            <Route path="naikkan-tingkat" element={<NaikkanTingkat />} />
             <Route path="agenda" element={<AgendaPengajar />} />
           </Route>
         </Route>

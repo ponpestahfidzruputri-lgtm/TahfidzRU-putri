@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS absensi (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     santri_id UUID REFERENCES santri(id) ON DELETE CASCADE,
     date DATE DEFAULT CURRENT_DATE,
-    session TEXT DEFAULT 'Shubuh' CHECK (session IN ('Shubuh', 'Ashar', 'Maghrib', 'Isya')),
+    session TEXT DEFAULT 'Shubuh' CHECK (session IN ('Shubuh', 'Ashar', 'Isya')),
     status TEXT CHECK (status IN ('Hadir', 'Izin', 'Sakit', 'Alpa')),
     note TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS tahfidz (
     to_ayat INTEGER,
     type TEXT,
     fluency TEXT,
+    session TEXT DEFAULT 'Shubuh' CHECK (session IN ('Shubuh', 'Ashar', 'Isya')),
+    setoran_level TEXT CHECK (setoran_level IN ('yanbua', 'binnadzhor', 'bilghoib') OR setoran_level IS NULL),
     setoran_mode TEXT DEFAULT 'per_halaman' CHECK (setoran_mode IN ('per_juz', 'per_halaman')),
     note TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()

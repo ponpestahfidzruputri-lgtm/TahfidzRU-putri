@@ -9,8 +9,6 @@ import { Toast } from '../../components/Toast';
 import { cn } from '../../utils/cn';
 import {
   CAMPUS_ABSENSI_SESSIONS,
-  CAMPUS_GENDER,
-  CAMPUS_GENDER_LABEL,
   CAMPUS_LABEL,
   createEmptySessionStats,
   type CampusAbsensiSession,
@@ -63,7 +61,6 @@ export default function LaporanTerpadu() {
   const thirdSession = CAMPUS_ABSENSI_SESSIONS[2];
 
   const processedData = santriList
-    .filter(s => s.gender === CAMPUS_GENDER)
     .filter(s => selectedClass === 'All' || s.class_name === selectedClass)
     .map(student => {
       const studentAbsensi = absensiLogs.filter(a => a.santri_id === student.id);
@@ -334,9 +331,6 @@ export default function LaporanTerpadu() {
             <td><strong>Status</strong></td>
             <td>:</td>
             <td>${student.type}</td>
-            <td><strong>Jenis Kelamin</strong></td>
-            <td>:</td>
-            <td>${CAMPUS_GENDER_LABEL}</td>
           </tr>
         </table>
 
@@ -855,10 +849,6 @@ export default function LaporanTerpadu() {
                       <span className="font-extrabold text-[#1e3a5f] uppercase">
                         {activeStudent.tahfidz_level === 'bilghoib' ? 'Bil Ghoib (Atas)' : 'Bin Nadzhor (Bawah)'}
                       </span>
-                    </div>
-                    <div className="flex justify-between border-none">
-                      <span className="text-slate-400">Jenis Kelamin</span>
-                      <span className="font-semibold text-slate-900">{CAMPUS_GENDER_LABEL}</span>
                     </div>
                   </div>
                 </div>

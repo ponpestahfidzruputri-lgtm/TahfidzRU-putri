@@ -15,7 +15,8 @@ import {
   X,
   BarChart3,
   FileText,
-  Image
+  Image,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../utils/cn';
@@ -47,6 +48,7 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       { path: '/pengajar', icon: LayoutDashboard, label: 'Dasbor Kelas' },
       { path: '/pengajar/absensi', icon: ClipboardCheck, label: 'Isi Presensi' },
       { path: '/pengajar/tahfidz', icon: BookOpen, label: 'Input Setoran' },
+      { path: '/pengajar/naikkan-tingkat', icon: TrendingUp, label: 'Naikkan Tingkat' },
       { path: '/pengajar/agenda', icon: Calendar, label: 'Agenda Acara' },
     ],
     wali: [

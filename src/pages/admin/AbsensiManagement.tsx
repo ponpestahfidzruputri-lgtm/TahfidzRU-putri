@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { useToast } from '../../hooks/useToast';
 import { Toast } from '../../components/Toast';
-import { ABSENSI_SESSIONS, DEFAULT_ABSENSI_SESSION, DEFAULT_GENDER_FILTER, type AbsensiSession, SESSION_GENDER_MAP } from '../../constants/absensi';
+import { ABSENSI_SESSIONS, DEFAULT_ABSENSI_SESSION, type AbsensiSession } from '../../constants/absensi';
 import { CAMPUS_ABSENSI_SESSION_LABEL } from '../../constants/campus';
 
 export default function AbsensiManagement() {
@@ -20,24 +20,13 @@ export default function AbsensiManagement() {
   const [selectedSession, setSelectedSession] = useState<AbsensiSession>(DEFAULT_ABSENSI_SESSION);
   const [selectedClass, setSelectedClass] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [genderFilter, setGenderFilter] = useState<'Semua' | 'L' | 'P'>(DEFAULT_GENDER_FILTER);
   const [recentDates, setRecentDates] = useState<any[]>([]);
   const { toast, showToast } = useToast();
 
-  const availableSessions = genderFilter === 'P'
-    ? ['Shubuh', 'Ashar', 'Isya']
-    : genderFilter === 'L'
-      ? ['Shubuh', 'Ashar', 'Maghrib']
-      : ABSENSI_SESSIONS;
-
-  const effectiveSession = availableSessions.includes(selectedSession) ? selectedSession : 'Shubuh';
+  const effectiveSession = ABSENSI_SESSIONS.includes(selectedSession) ? selectedSession : 'Shubuh';
 
   useEffect(() => { fetchData(); }, [date, effectiveSession]);
   useEffect(() => { fetchRecentDates(); }, [date, effectiveSession, santri.length]);
-  useEffect(() => {
-    if (genderFilter === 'L' && selectedSession === 'Isya') setSelectedSession('Shubuh');
-    else if (genderFilter === 'P' && selectedSession === 'Maghrib') setSelectedSession('Shubuh');
-  }, [genderFilter]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -60,7 +49,7 @@ export default function AbsensiManagement() {
       const uniqueDates = Array.from(new Set(data.map((a: any) => a.date))).sort().reverse().slice(0, 5);
       const sessionHistory = (uniqueDates as string[]).map(d => {
         const dayData = data.filter((a: any) => a.date === d && (a.session || 'Shubuh') === effectiveSession);
-        const relevantTotal = SESSION_GENDER_MAP[effectiveSession] === 'all' ? santri.length : santri.filter((s: any) => s.gender === SESSION_GENDER_MAP[effectiveSession]).length;
+        const relevantTotal = santri.length;
         return { date: d, filled: dayData.length, total: relevantTotal || dayData.length };
       });
       const filledNow = Object.keys(absensi).length;
@@ -99,8 +88,7 @@ export default function AbsensiManagement() {
   const filteredSantri = santri.filter(s => {
     const matchesClass = selectedClass === 'All' || s.class_name === selectedClass;
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.nis.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGender = genderFilter === 'Semua' || s.gender === genderFilter;
-    return matchesClass && matchesSearch && matchesGender;
+    return matchesClass && matchesSearch;
   });
 
   const stats = {
@@ -141,7 +129,7 @@ export default function AbsensiManagement() {
 
       {/* Sesi sholat */}
       <div className="card p-2 flex flex-wrap gap-2">
-        {availableSessions.map((sesi) => (
+        {ABSENSI_SESSIONS.map((sesi) => (
           <button
             key={sesi}
             type="button"
@@ -157,11 +145,6 @@ export default function AbsensiManagement() {
             {sesi}
           </button>
         ))}
-        {genderFilter !== 'Semua' && (
-          <span className="text-[10px] text-slate-400 flex items-center px-2">
-            {genderFilter === 'L' ? '👦 Putra' : '👧 Putri'}
-          </span>
-        )}
       </div>
 
       {/* Stat Cards */}

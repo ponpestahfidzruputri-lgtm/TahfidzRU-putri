@@ -7,7 +7,6 @@ import { useToast } from '../../hooks/useToast';
 import { Toast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { useNavigate } from 'react-router-dom';
-import { CAMPUS_GENDER } from '../../constants/campus';
 
 export default function SantriManagement() {
   const navigate = useNavigate();
@@ -31,7 +30,7 @@ export default function SantriManagement() {
 
   const [formData, setFormData] = useState({
     name: '', nis: '', type: 'Mukim',
-    gender: 'P', wali_id: '', email: '', photo_url: '',
+    wali_id: '', email: '', photo_url: '',
     tahfidz_level: 'yanbua'
   });
 
@@ -106,7 +105,7 @@ export default function SantriManagement() {
     if (s) {
       setCurrentSantri(s);
       setFormData({ name: s.name, nis: s.nis, type: s.type,
-        gender: s.gender, wali_id: s.wali_id || '', email: s.email || '', photo_url: s.photo_url || '',
+        wali_id: s.wali_id || '', email: s.email || '', photo_url: s.photo_url || '',
         tahfidz_level: s.tahfidz_level || 'yanbua' });
     } else {
       const nises = santri.map(x => { const m = x.nis.match(/\d+/); return m ? parseInt(m[0]) : 0; })
@@ -114,7 +113,7 @@ export default function SantriManagement() {
       const next = nises.length > 0 ? nises[0] + 1 : 1;
       setCurrentSantri(null);
       setFormData({ name: '', nis: next < 10 ? `0${next}` : `${next}`, type: 'Mukim',
-        gender: 'P', wali_id: '', email: '', photo_url: '', tahfidz_level: 'yanbua' });
+        wali_id: '', email: '', photo_url: '', tahfidz_level: 'yanbua' });
     }
     setIsModalOpen(true);
   };

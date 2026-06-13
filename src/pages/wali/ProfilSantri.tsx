@@ -83,15 +83,6 @@ export default function ProfilSantri() {
                 </div>
 
                 <div className="mt-8 space-y-3 text-left">
-                  <div className="flex items-center p-4 bg-slate-50 rounded-xl">
-                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-slate-400 mr-4 shadow-sm">
-                      <User size={18} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Jenis Kelamin</p>
-                      <p className="text-sm font-semibold text-slate-700">{s.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</p>
-                    </div>
-                  </div>
 
                   <div className="p-4 bg-slate-50 rounded-xl">
                     <div className="flex items-center justify-between mb-2">

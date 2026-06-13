@@ -1,38 +1,70 @@
--- Jalankan di Supabase SQL Editor jika database sudah ada sebelumnya
+-- ============================================================
+-- MIGRATION: Update database untuk putri (hapus gender, update sesi & setoran)
+-- ============================================================
 
+-- 1. Hapus kolom gender dari tabel santri (semua santri adalah putri)
+ALTER TABLE santri DROP COLUMN IF EXISTS gender;
+
+-- 2. Update constraint session di tabel absensi (putri: Shubuh, Ashar, Isya)
+ALTER TABLE absensi DROP CONSTRAINT IF EXISTS absensi_session_check;
+ALTER TABLE absensi ADD CONSTRAINT absensi_session_check
+CHECK (session IN ('Shubuh', 'Ashar', 'Isya'));
+
+-- 3. Update data absensi: hapus atau update session 'Maghrib' jika ada
+UPDATE absensi SET session = 'Isya' WHERE session = 'Maghrib';
+
+-- 4. Tambah kolom session ke tabel tahfidz
+ALTER TABLE tahfidz ADD COLUMN IF NOT EXISTS session TEXT DEFAULT 'Shubuh';
+UPDATE tahfidz SET session = 'Shubuh' WHERE session IS NULL;
+
+-- 5. Tambah constraint session di tabel tahfidz
+ALTER TABLE tahfidz DROP CONSTRAINT IF EXISTS tahfidz_session_check;
+ALTER TABLE tahfidz ADD CONSTRAINT tahfidz_session_check
+CHECK (session IN ('Shubuh', 'Ashar', 'Isya'));
+
+-- 6. Tambah kolom setoran_level ke tabel tahfidz
+ALTER TABLE tahfidz ADD COLUMN IF NOT EXISTS setoran_level TEXT;
+
+-- 7. Tambah constraint setoran_level di tabel tahfidz
+ALTER TABLE tahfidz DROP CONSTRAINT IF EXISTS tahfidz_setoran_level_check;
+ALTER TABLE tahfidz ADD CONSTRAINT tahfidz_setoran_level_check
+CHECK (setoran_level IN ('yanbua', 'binnadzhor', 'bilghoib') OR setoran_level IS NULL);
+
+-- 8. Pastikan kolom setoran_mode ada dengan constraint yang benar
+ALTER TABLE tahfidz ADD COLUMN IF NOT EXISTS setoran_mode TEXT DEFAULT 'per_halaman';
+UPDATE tahfidz SET setoran_mode = 'per_halaman' WHERE setoran_mode IS NULL;
+ALTER TABLE tahfidz DROP CONSTRAINT IF EXISTS tahfidz_setoran_mode_check;
+ALTER TABLE tahfidz ADD CONSTRAINT tahfidz_setoran_mode_check
+CHECK (setoran_mode IN ('per_juz', 'per_halaman'));
+
+-- 9. Update tahfidz_level di santri agar include 'yanbua'
+ALTER TABLE santri DROP CONSTRAINT IF EXISTS santri_tahfidz_level_check;
+ALTER TABLE santri ADD CONSTRAINT santri_tahfidz_level_check
+CHECK (tahfidz_level IN ('yanbua', 'binnadzhor', 'bilghoib'));
+
+-- 10. Update default tahfidz_level menjadi 'yanbua' untuk santri baru
+ALTER TABLE santri ALTER COLUMN tahfidz_level SET DEFAULT 'yanbua';
+UPDATE santri SET tahfidz_level = 'yanbua' WHERE tahfidz_level IS NULL OR tahfidz_level = 'binnadzhor';
+
+-- 11. Tambah kolom type ke santri jika belum ada
 ALTER TABLE santri ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Mukim'
   CHECK (type IN ('Mukim', 'Non-Mukim'));
 
-ALTER TABLE absensi ADD COLUMN IF NOT EXISTS session TEXT DEFAULT 'Shubuh'
-  CHECK (session IN ('Shubuh', 'Ashar', 'Maghrib'));
-
-UPDATE absensi SET session = 'Shubuh' WHERE session IS NULL;
-
--- Ganti constraint unik lama jika ada, lalu buat yang baru
+-- 12. Update unique constraint untuk absensi
 ALTER TABLE absensi DROP CONSTRAINT IF EXISTS absensi_santri_id_date_key;
 ALTER TABLE absensi DROP CONSTRAINT IF EXISTS absensi_santri_date_session_unique;
 CREATE UNIQUE INDEX IF NOT EXISTS absensi_santri_date_session_unique
   ON absensi (santri_id, date, session);
 
+-- 13. Update agenda
 ALTER TABLE agenda ADD COLUMN IF NOT EXISTS time TIME DEFAULT '08:00';
+ALTER TABLE agenda ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
-ALTER TABLE absensi DROP CONSTRAINT IF EXISTS absensi_session_check;
-ALTER TABLE absensi ADD CONSTRAINT absensi_session_check
-  CHECK (session IN ('Shubuh', 'Ashar', 'Maghrib', 'Isya'));
-
-ALTER TABLE tahfidz ADD COLUMN IF NOT EXISTS setoran_mode TEXT DEFAULT 'per_halaman'
-  CHECK (setoran_mode IN ('per_juz', 'per_halaman'));
-
+-- 14. Update policies untuk agenda
 DROP POLICY IF EXISTS "agenda_pengajar_all" ON agenda;
 CREATE POLICY "agenda_pengajar_all" ON agenda FOR ALL USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'pengajar')
 );
-
--- Migrasi baru
-ALTER TABLE santri ADD COLUMN IF NOT EXISTS tahfidz_level TEXT DEFAULT 'binnadzhor'
-  CHECK (tahfidz_level IN ('binnadzhor', 'bilghoib'));
-
-ALTER TABLE agenda ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
 -- Konten website: hero slider & galeri
 CREATE TABLE IF NOT EXISTS hero_slides (
