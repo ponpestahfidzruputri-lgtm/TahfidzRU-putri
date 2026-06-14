@@ -26,6 +26,13 @@ export default function KontenManagement() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const posterInputRef = useRef<HTMLInputElement>(null);
   const { toast, showToast } = useToast();
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya',
+    onConfirm: () => {}
+  });
 
   const [heroForm, setHeroForm] = useState({
     type: 'image' as 'image' | 'video',
@@ -197,17 +204,25 @@ export default function KontenManagement() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     const label = tab === 'hero' ? 'slide hero' : 'foto galeri';
-    if (!confirm(`Hapus ${label} ini?`)) return;
-    try {
-      if (tab === 'hero') await dataService.deleteHeroSlide(id);
-      else await dataService.deleteGaleriItem(id);
-      showToast('Konten dihapus', 'success');
-      fetchAll();
-    } catch {
-      showToast('Gagal menghapus konten', 'error');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: `Hapus ${tab === 'hero' ? 'Slide Hero' : 'Item Galeri'}`,
+      message: `Apakah Anda yakin ingin menghapus ${label} ini? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          if (tab === 'hero') await dataService.deleteHeroSlide(id);
+          else await dataService.deleteGaleriItem(id);
+          showToast('Konten dihapus', 'success');
+          fetchAll();
+        } catch {
+          showToast('Gagal menghapus konten', 'error');
+        }
+      }
+    });
   };
 
   const toggleActive = async (item: any) => {
@@ -510,6 +525,25 @@ export default function KontenManagement() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal 
+        isOpen={confirmModal.isOpen} 
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
+        title={confirmModal.title}
+        className="max-w-md"
+      >
+        <div className="space-y-6">
+          <p className="text-slate-600 leading-relaxed">
+            {confirmModal.message}
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="btn-secondary flex-1">Batal</button>
+            <button onClick={confirmModal.onConfirm} className="btn-primary bg-red-600 hover:bg-red-700 text-white border-transparent flex-1">
+              {confirmModal.confirmText}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

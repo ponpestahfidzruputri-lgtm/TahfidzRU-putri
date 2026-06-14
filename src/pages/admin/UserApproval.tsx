@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { dataService } from '../../services/data';
-import { UserCheck, UserX, Search, ShieldCheck, Loader2 } from 'lucide-react';
+import { UserCheck, UserX, Search, ShieldCheck, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useToast } from '../../hooks/useToast';
 import { Toast } from '../../components/Toast';
+import { Modal } from '../../components/Modal';
 
 export default function UserApproval() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast, showToast } = useToast();
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya',
+    onConfirm: () => {}
+  });
 
   useEffect(() => {
     fetchProfiles();
@@ -44,6 +52,25 @@ export default function UserApproval() {
     } catch (error) {
       showToast('Gagal mengubah peran', 'error');
     }
+  };
+
+  const handleDeleteUser = (id: string, nameOrEmail: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Akun',
+      message: `Apakah Anda yakin ingin menghapus akun "${nameOrEmail}"? Tindakan ini akan menghapus seluruh data terkait dan tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus Akun',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await dataService.deleteUser(id);
+          showToast('Akun berhasil dihapus', 'success');
+          fetchProfiles();
+        } catch (error: any) {
+          showToast(error.message || 'Gagal menghapus akun', 'error');
+        }
+      }
+    });
   };
 
   const filteredProfiles = profiles.filter(p =>
@@ -142,7 +169,7 @@ export default function UserApproval() {
                       {p.is_approved ? 'Disetujui' : 'Menunggu'}
                     </span>
                   </td>
-                  <td className="px-5 py-4 whitespace-nowrap text-right">
+                  <td className="px-5 py-4 whitespace-nowrap text-right flex items-center justify-end gap-2">
                     {!p.is_approved ? (
                       <button
                         onClick={() => handleApproval(p.id, true)}
@@ -160,6 +187,13 @@ export default function UserApproval() {
                         Cabut
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDeleteUser(p.id, p.name || p.email)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-200 hover:border-red-100 rounded-lg transition-colors"
+                      title="Hapus Akun"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -167,6 +201,25 @@ export default function UserApproval() {
           </table>
         </div>
       </div>
+
+      <Modal 
+        isOpen={confirmModal.isOpen} 
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
+        title={confirmModal.title}
+        className="max-w-md"
+      >
+        <div className="space-y-6">
+          <p className="text-slate-600 leading-relaxed">
+            {confirmModal.message}
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="btn-secondary flex-1">Batal</button>
+            <button onClick={confirmModal.onConfirm} className="btn-primary bg-red-600 hover:bg-red-700 text-white border-transparent flex-1">
+              {confirmModal.confirmText}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => {}} />}
     </div>

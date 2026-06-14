@@ -9,6 +9,33 @@ import { id as localeId } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 
+const getSessionBadgeClass = (session: string) => {
+  switch (session) {
+    case 'Shubuh': return 'bg-amber-50 text-amber-700 border-amber-200';
+    case 'Ashar': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    case 'Isya': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    default: return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
+};
+
+const getLevelBadgeClass = (level: string) => {
+  switch (level) {
+    case 'yanbua': return 'bg-teal-50 text-teal-700 border-teal-200';
+    case 'binnadzhor': return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'bilghoib': return 'bg-purple-50 text-purple-700 border-purple-200';
+    default: return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
+};
+
+const getLevelLabel = (level: string) => {
+  switch (level) {
+    case 'yanbua': return "Yanbu'a";
+    case 'binnadzhor': return 'Bin Nadzhor';
+    case 'bilghoib': return 'Bil Ghoib';
+    default: return level;
+  }
+};
+
 export default function WaliDashboard() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -170,22 +197,38 @@ export default function WaliDashboard() {
                   {tahfidzStats.slice(0, 4).map((item) => (
                     <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                       className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-slate-200 transition-colors">
-                       <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                       <div className="flex items-start justify-between mb-3 gap-2">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
                               item.type === 'Setoran Baru' ? "bg-emerald-50 text-emerald-500" : "bg-sky-50 text-sky-500")}>
                               <CheckCircle2 size={18} />
                             </div>
-                            <div>
-                              <p className="text-sm font-bold text-slate-800">{item.surah}</p>
-                              <p className="text-xs text-slate-500">Ayat {item.from_ayat}-{item.to_ayat}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-slate-800 truncate">{item.surah}</p>
+                              <p className="text-xs text-slate-500 font-medium">
+                                {item.surah?.startsWith('Jilid')
+                                  ? (item.note ? `Materi: ${item.note}` : 'Yanbu\'a')
+                                  : item.surah?.startsWith('Juz')
+                                  ? `Halaman ${item.from_ayat}–${item.to_ayat}`
+                                  : `Ayat ${item.from_ayat}–${item.to_ayat}`}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border", getSessionBadgeClass(item.session || 'Shubuh'))}>
+                                  {item.session || 'Shubuh'}
+                                </span>
+                                {item.setoran_level && (
+                                  <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border", getLevelBadgeClass(item.setoran_level))}>
+                                    {getLevelLabel(item.setoran_level)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <span className="text-[10px] text-slate-400 font-medium">
+                          <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">
                              {format(new Date(item.created_at || '2026-01-01T00:00:00'), 'dd MMM yyyy', { locale: localeId })}
                           </span>
                        </div>
-                       {item.note && (
+                       {item.note && !item.surah?.startsWith('Jilid') && (
                          <p className="text-xs text-slate-600 italic mt-2 border-l-2 border-slate-200 pl-2">"{item.note}"</p>
                        )}
                     </motion.div>

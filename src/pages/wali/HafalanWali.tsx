@@ -17,6 +17,33 @@ const safeDate = (dateStr: string) => {
   } catch { return new Date(); }
 };
 
+const getSessionBadgeClass = (session: string) => {
+  switch (session) {
+    case 'Shubuh': return 'bg-amber-50 text-amber-700 border-amber-200';
+    case 'Ashar': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    case 'Isya': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    default: return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
+};
+
+const getLevelBadgeClass = (level: string) => {
+  switch (level) {
+    case 'yanbua': return 'bg-teal-50 text-teal-700 border-teal-200';
+    case 'binnadzhor': return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'bilghoib': return 'bg-purple-50 text-purple-700 border-purple-200';
+    default: return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
+};
+
+const getLevelLabel = (level: string) => {
+  switch (level) {
+    case 'yanbua': return "Yanbu'a";
+    case 'binnadzhor': return 'Bin Nadzhor';
+    case 'bilghoib': return 'Bil Ghoib';
+    default: return level;
+  }
+};
+
 export default function HafalanWali() {
   const { user, loading: authLoading } = useAuth();
   const [santri, setSantri] = useState<any[]>([]);
@@ -99,12 +126,31 @@ export default function HafalanWali() {
                         item.type === 'Setoran Baru' ? "bg-emerald-50 text-emerald-600" : "bg-sky-50 text-sky-600")}>
                         {item.type}
                       </span>
+                      <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-bold border", getSessionBadgeClass(item.session || 'Shubuh'))}>
+                        {item.session || 'Shubuh'}
+                      </span>
+                      {item.setoran_level && (
+                        <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-bold border", getLevelBadgeClass(item.setoran_level))}>
+                          {getLevelLabel(item.setoran_level)}
+                        </span>
+                      )}
                       <h4 className="text-lg font-bold text-slate-900">{item.surah}</h4>
-                      <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded text-xs text-slate-600 font-semibold">
-                        <span>Ayat {item.from_ayat}</span>
-                        <ArrowRight size={12} className="text-slate-400" />
-                        <span>{item.to_ayat}</span>
-                      </div>
+                      
+                      {!item.surah?.startsWith('Jilid') ? (
+                        <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded text-xs text-slate-600 font-semibold border border-slate-100">
+                          <span>
+                            {item.surah?.startsWith('Juz') ? 'Halaman' : 'Ayat'} {item.from_ayat}
+                          </span>
+                          <ArrowRight size={12} className="text-slate-400" />
+                          <span>{item.to_ayat}</span>
+                        </div>
+                      ) : (
+                        item.note && (
+                          <span className="text-xs bg-slate-50 px-2.5 py-1 rounded-lg text-slate-600 font-semibold border border-slate-150">
+                            Materi: {item.note}
+                          </span>
+                        )
+                      )}
                     </div>
                     <span className="text-xs text-slate-400 font-medium">
                       {(() => { try { return format(safeDate(item.created_at), 'dd MMM yyyy', { locale: localeId }); } catch { return ''; } })()}
@@ -118,7 +164,11 @@ export default function HafalanWali() {
                      </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Catatan Ustadz</p>
-                      <p className="text-sm text-slate-700 italic">"{item.note || 'Tetap semangat dan istiqomah dalam murajaah.'}"</p>
+                      <p className="text-sm text-slate-700 italic">
+                        {item.surah?.startsWith('Jilid')
+                          ? 'Materi Yanbu\'a berhasil disetorkan dengan baik.'
+                          : (item.note || 'Tetap semangat dan istiqomah dalam murajaah.')}
+                      </p>
                       <div className="mt-3 flex items-center gap-1">
                         <span className="text-xs font-semibold mr-2 text-slate-500">Kelancaran:</span>
                          {[1,2,3].map(i => (

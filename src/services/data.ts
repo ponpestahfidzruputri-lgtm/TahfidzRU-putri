@@ -137,6 +137,7 @@ export const dataService = {
   getProfiles: () => handleResponse(supabase.from('profiles').select('*')),
   getWaliList: () => handleResponse(supabase.from('profiles').select('*').eq('role', 'wali').eq('is_approved', true).order('full_name')),
   updateProfile: (id: string, data: any) => handleResponse(supabase.from('profiles').update(data).eq('id', id)),
+  deleteUser: (id: string) => handleResponse(supabase.rpc('delete_user', { user_id: id })),
   
   // Keuangan
   getTransactions: (santriId?: string) => {

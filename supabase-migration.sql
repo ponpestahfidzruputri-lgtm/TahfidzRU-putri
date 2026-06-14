@@ -120,3 +120,21 @@ CREATE POLICY "konten_admin_update" ON storage.objects
   FOR UPDATE USING (bucket_id = 'konten' AND is_admin());
 CREATE POLICY "konten_admin_delete" ON storage.objects
   FOR DELETE USING (bucket_id = 'konten' AND is_admin());
+
+-- 15. Update policies untuk santri (agar pengajar bisa menaikkan tingkat santri)
+DROP POLICY IF EXISTS "santri_pengajar_update" ON santri;
+CREATE POLICY "santri_pengajar_update" ON santri FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'pengajar')
+);
+
+-- 16. HELPER FUNCTION: delete_user untuk menghapus auth.users oleh admin
+CREATE OR REPLACE FUNCTION public.delete_user(user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Hanya administrator yang dapat menghapus akun.';
+  END IF;
+
+  DELETE FROM auth.users WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

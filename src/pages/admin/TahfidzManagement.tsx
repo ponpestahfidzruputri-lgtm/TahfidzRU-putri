@@ -39,6 +39,13 @@ export default function TahfidzManagement() {
   const { toast, showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<any>(null);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya',
+    onConfirm: () => {}
+  });
 
   const [formData, setFormData] = useState({
     session: '',
@@ -109,10 +116,23 @@ export default function TahfidzManagement() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus riwayat hafalan ini?')) return;
-    try { await dataService.deleteTahfidz(id); showToast('Riwayat berhasil dihapus', 'success'); if (selectedSantri) fetchLogs(selectedSantri); }
-    catch { showToast('Gagal menghapus riwayat', 'error'); }
+  const handleDelete = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Riwayat Hafalan',
+      message: 'Apakah Anda yakin ingin menghapus riwayat hafalan ini? Tindakan ini tidak dapat dibatalkan.',
+      confirmText: 'Ya, Hapus',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await dataService.deleteTahfidz(id);
+          showToast('Riwayat berhasil dihapus', 'success');
+          if (selectedSantri) fetchLogs(selectedSantri);
+        } catch {
+          showToast('Gagal menghapus riwayat', 'error');
+        }
+      }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -575,6 +595,25 @@ export default function TahfidzManagement() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal 
+        isOpen={confirmModal.isOpen} 
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
+        title={confirmModal.title}
+        className="max-w-md"
+      >
+        <div className="space-y-6">
+          <p className="text-slate-600 leading-relaxed">
+            {confirmModal.message}
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="btn-secondary flex-1">Batal</button>
+            <button onClick={confirmModal.onConfirm} className="btn-primary bg-red-600 hover:bg-red-700 text-white border-transparent flex-1">
+              {confirmModal.confirmText}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => {}} />}

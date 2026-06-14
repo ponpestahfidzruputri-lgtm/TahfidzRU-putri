@@ -29,6 +29,13 @@ export default function AgendaManagement() {
   const [photoPreview, setPhotoPreview] = useState<string>('');
   const [viewingPhoto, setViewingPhoto] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya',
+    onConfirm: () => {}
+  });
 
   const [formData, setFormData] = useState({
     title: '', description: '', date: format(new Date(), 'yyyy-MM-dd'),
@@ -82,10 +89,23 @@ export default function AgendaManagement() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus agenda ini?')) return;
-    try { await dataService.deleteAgenda(id); showToast('Agenda dihapus', 'success'); fetchAgendas(); }
-    catch { showToast('Gagal menghapus agenda', 'error'); }
+  const handleDelete = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Agenda',
+      message: 'Apakah Anda yakin ingin menghapus agenda kegiatan ini? Tindakan ini tidak dapat dibatalkan.',
+      confirmText: 'Ya, Hapus',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await dataService.deleteAgenda(id);
+          showToast('Agenda dihapus', 'success');
+          fetchAgendas();
+        } catch {
+          showToast('Gagal menghapus agenda', 'error');
+        }
+      }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -306,6 +326,25 @@ export default function AgendaManagement() {
           </div>
         </div>
       )}
+
+      <Modal 
+        isOpen={confirmModal.isOpen} 
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
+        title={confirmModal.title}
+        className="max-w-md"
+      >
+        <div className="space-y-6">
+          <p className="text-slate-600 leading-relaxed">
+            {confirmModal.message}
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="btn-secondary flex-1">Batal</button>
+            <button onClick={confirmModal.onConfirm} className="btn-primary bg-red-600 hover:bg-red-700 text-white border-transparent flex-1">
+              {confirmModal.confirmText}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => {}} />}
     </div>

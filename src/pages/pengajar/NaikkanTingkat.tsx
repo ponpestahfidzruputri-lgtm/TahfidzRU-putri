@@ -5,12 +5,20 @@ import { TrendingUp, Users, CheckCircle2, Loader2, Award, ChevronDown } from 'lu
 import { cn } from '../../utils/cn';
 import { useToast } from '../../hooks/useToast';
 import { Toast } from '../../components/Toast';
+import { Modal } from '../../components/Modal';
 
 export default function NaikkanTingkat() {
   const [santri, setSantri] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const { toast, showToast } = useToast();
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya',
+    onConfirm: () => {}
+  });
 
   useEffect(() => { fetchSantri(); }, []);
 
@@ -22,35 +30,47 @@ export default function NaikkanTingkat() {
     finally { setLoading(false); }
   };
 
-  const handleUpgrade = async (santriId: string, currentLevel: string) => {
-    if (!confirm(`Naikkan tingkat santri ini dari ${currentLevel}?`)) return;
-    
-    setUpdating(santriId);
-    try {
-      let newLevel: string;
-      if (currentLevel === 'yanbua') {
-        newLevel = 'binnadzhor';
-      } else if (currentLevel === 'binnadzhor') {
-        newLevel = 'bilghoib';
-      } else {
-        showToast('Santri sudah di tingkat tertinggi', 'error');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('santri')
-        .update({ tahfidz_level: newLevel })
-        .eq('id', santriId);
-
-      if (error) throw error;
-
-      showToast(`Berhasil naikkan tingkat ke ${newLevel}`, 'success');
-      fetchSantri();
-    } catch (error: any) {
-      showToast(error.message || 'Gagal naikkan tingkat', 'error');
-    } finally {
-      setUpdating(null);
+  const handleUpgrade = (santriId: string, currentLevel: string) => {
+    let newLevel: string;
+    if (currentLevel === 'yanbua') {
+      newLevel = 'binnadzhor';
+    } else if (currentLevel === 'binnadzhor') {
+      newLevel = 'bilghoib';
+    } else {
+      showToast('Santri sudah di tingkat tertinggi', 'error');
+      return;
     }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Konfirmasi Kenaikan Tingkat',
+      message: `Apakah Anda yakin ingin menaikkan tingkat santri ini ke tingkat ${getLevelLabel(newLevel)}?`,
+      confirmText: 'Ya, Naikkan Tingkat',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setUpdating(santriId);
+        try {
+          const { data, error } = await supabase
+            .from('santri')
+            .update({ tahfidz_level: newLevel })
+            .eq('id', santriId)
+            .select();
+
+          if (error) throw error;
+
+          if (!data || data.length === 0) {
+            throw new Error('Gagal menaikkan tingkat. Kebijakan keamanan (RLS) di database belum mengizinkan pengajar untuk memperbarui data santri.');
+          }
+
+          showToast(`Berhasil naikkan tingkat ke ${newLevel}`, 'success');
+          fetchSantri();
+        } catch (error: any) {
+          showToast(error.message || 'Gagal naikkan tingkat', 'error');
+        } finally {
+          setUpdating(null);
+        }
+      }
+    });
   };
 
   const getLevelLabel = (level: string) => {
@@ -165,6 +185,25 @@ export default function NaikkanTingkat() {
           </div>
         )}
       </div>
+
+      <Modal 
+        isOpen={confirmModal.isOpen} 
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
+        title={confirmModal.title}
+        className="max-w-md"
+      >
+        <div className="space-y-6">
+          <p className="text-slate-600 leading-relaxed">
+            {confirmModal.message}
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="btn-secondary flex-1">Batal</button>
+            <button onClick={confirmModal.onConfirm} className="btn-primary flex-1">
+              {confirmModal.confirmText}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => {}} />}
     </div>

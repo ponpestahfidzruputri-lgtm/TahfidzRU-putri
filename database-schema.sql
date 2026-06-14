@@ -166,6 +166,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- 4b. HELPER FUNCTION: delete_user (Security Definer untuk hapus akun auth.users oleh admin)
+CREATE OR REPLACE FUNCTION public.delete_user(user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Hanya administrator yang dapat menghapus akun.';
+  END IF;
+
+  DELETE FROM auth.users WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 -- 5. POLICIES: Bersih dan Aman
 CREATE POLICY "allow_select_all_profiles" ON profiles FOR SELECT USING (true);
 CREATE POLICY "allow_insert_self_profiles" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
@@ -178,6 +190,9 @@ CREATE POLICY "santri_select_auth" ON santri FOR SELECT USING (
     wali_id = auth.uid()
 );
 CREATE POLICY "santri_admin_all" ON santri FOR ALL USING (is_admin());
+CREATE POLICY "santri_pengajar_update" ON santri FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'pengajar')
+);
 
 CREATE POLICY "absensi_select_all" ON absensi FOR SELECT USING (
     is_admin() OR 
