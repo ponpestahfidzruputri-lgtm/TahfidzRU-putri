@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dataService } from '../../services/data';
-import { BookOpen, UserCircle, Plus, ChevronDown, CheckCircle2, History, Edit2, Trash2, Loader2, Info, Users } from 'lucide-react';
+import { BookOpen, UserCircle, Plus, ChevronDown, CheckCircle2, History, Edit2, Trash2, Loader2, Info, Users, Search } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -39,13 +39,23 @@ export default function TahfidzManagement() {
   const { toast, showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<any>(null);
-  const [confirmModal, setConfirmModal] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    confirmText: 'Ya',
-    onConfirm: () => {}
-  });
+
+  // Searchable Dropdown state
+  const [dropdownSearch, setDropdownSearch] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const [formData, setFormData] = useState({
     session: '',
@@ -57,9 +67,8 @@ export default function TahfidzManagement() {
   });
 
   const currentSantriObj = santri.find(s => s.id === selectedSantri);
-  const isShubuhSession = formData.session === 'Shubuh';
-  const isYanbuaShubuh = isShubuhSession && (currentSantriObj?.tahfidz_level === 'yanbua' || !currentSantriObj?.tahfidz_level);
-  const shubuhLevelLabel = currentSantriObj?.tahfidz_level === 'bilghoib'
+  const isYanbua = (currentSantriObj?.tahfidz_level === 'yanbua' || !currentSantriObj?.tahfidz_level);
+  const levelLabel = currentSantriObj?.tahfidz_level === 'bilghoib'
     ? 'Bil Ghoib'
     : currentSantriObj?.tahfidz_level === 'binnadzhor'
       ? 'Bin Nadzhor'
@@ -81,7 +90,7 @@ export default function TahfidzManagement() {
   const fetchSantri = async () => {
     try {
       const data = await dataService.getSantriList();
-      setSantri(data || []);
+      setSantri(data);
     } catch { showToast('Gagal memuat daftar santri', 'error'); }
     finally { setLoading(false); }
   };
@@ -116,23 +125,10 @@ export default function TahfidzManagement() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setConfirmModal({
-      isOpen: true,
-      title: 'Hapus Riwayat Hafalan',
-      message: 'Apakah Anda yakin ingin menghapus riwayat hafalan ini? Tindakan ini tidak dapat dibatalkan.',
-      confirmText: 'Ya, Hapus',
-      onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        try {
-          await dataService.deleteTahfidz(id);
-          showToast('Riwayat berhasil dihapus', 'success');
-          if (selectedSantri) fetchLogs(selectedSantri);
-        } catch {
-          showToast('Gagal menghapus riwayat', 'error');
-        }
-      }
-    });
+  const handleDelete = async (id: string) => {
+    if (!confirm('Hapus riwayat hafalan ini?')) return;
+    try { await dataService.deleteTahfidz(id); showToast('Riwayat berhasil dihapus', 'success'); if (selectedSantri) fetchLogs(selectedSantri); }
+    catch { showToast('Gagal menghapus riwayat', 'error'); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,8 +138,8 @@ export default function TahfidzManagement() {
     try {
       let payload: any;
       const session = formData.session;
-      const isYanbuaShubuh = session === 'Shubuh' && (currentSantriObj?.tahfidz_level === 'yanbua' || !currentSantriObj?.tahfidz_level);
-      if (isYanbuaShubuh) {
+      const isYanbuaTarget = (currentSantriObj?.tahfidz_level === 'yanbua' || !currentSantriObj?.tahfidz_level);
+      if (isYanbuaTarget) {
         payload = {
           session,
           setoran_level: currentSantriObj?.tahfidz_level || 'yanbua',
@@ -183,7 +179,7 @@ export default function TahfidzManagement() {
       fetchLogs(selectedSantri);
       if (!editingLog) {
         setFormData({
-          session: formData.session || 'Shubuh',
+          session: 'Shubuh',
           setoran_level: currentSantriObj?.tahfidz_level || 'yanbua',
           surah: '',
           from_ayat: '',
@@ -254,20 +250,76 @@ export default function TahfidzManagement() {
               </div>
               {formData.session ? (
                 <>
-                  <div>
+                  {/* Searchable Santri Selection */}
+                  <div className="relative" ref={dropdownRef}>
                     <label className="form-label">Pilih Santri</label>
-                    <div className="relative">
-                      <select className="input-field appearance-none pr-9 cursor-pointer" value={selectedSantri}
-                        onChange={(e) => setSelectedSantri(e.target.value)}>
-                        <option value="">-- Pilih Santri --</option>
-                        {santri.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {(s.name || 'Santri tanpa nama')} ({s.nis || '-'})
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <div 
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="input-field flex items-center justify-between cursor-pointer bg-white"
+                    >
+                      <span className={selectedSantri ? 'text-slate-800 font-semibold text-xs' : 'text-slate-400 text-xs'}>
+                        {selectedSantri 
+                          ? (santri.find(s => s.id === selectedSantri)?.name || 'Santri Terpilih') 
+                          : '-- Pilih Santri --'}
+                      </span>
+                      <ChevronDown size={14} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                     </div>
+
+                    {isDropdownOpen && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-60 animate-slide-up">
+                        {/* Search box */}
+                        <div className="p-2 border-b border-slate-100 bg-slate-50">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              placeholder="Cari nama atau NIS..."
+                              className="w-full text-xs bg-white border border-slate-200 rounded-xl py-2 pl-8 pr-3 focus:outline-none focus:border-[#1e3a5f]"
+                              value={dropdownSearch}
+                              onChange={(e) => setDropdownSearch(e.target.value)}
+                              onClick={(e) => e.stopPropagation()} // Prevent closing dropdown
+                            />
+                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          </div>
+                        </div>
+
+                        {/* Options list */}
+                        <div className="overflow-y-auto max-h-48 custom-scrollbar text-xs">
+                          {(() => {
+                            const filtered = santri.filter(s => 
+                              s.name.toLowerCase().includes(dropdownSearch.toLowerCase()) || 
+                              (s.nis && s.nis.toLowerCase().includes(dropdownSearch.toLowerCase()))
+                            );
+
+                            if (filtered.length === 0) {
+                              return (
+                                <div className="p-3 text-center text-slate-400">
+                                  Santri tidak ditemukan
+                                </div>
+                              );
+                            }
+
+                            return filtered.map(s => (
+                              <div
+                                key={s.id}
+                                onClick={() => {
+                                  setSelectedSantri(s.id);
+                                  setIsDropdownOpen(false);
+                                  setDropdownSearch('');
+                                }}
+                                className={`p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-0 ${
+                                  selectedSantri === s.id ? 'bg-blue-50/50 font-bold text-[#1e3a5f]' : 'text-slate-700'
+                                }`}
+                              >
+                                <div>
+                                  <p className="font-semibold">{s.name}</p>
+                                  <p className="text-[10px] text-slate-400">NIS: {s.nis || '-'}</p>
+                                </div>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {selectedSantri ? (
@@ -280,12 +332,12 @@ export default function TahfidzManagement() {
                         <div className="flex items-center gap-2 text-xs">
                           <span className="text-slate-500">Level Tahfidz:</span>
                           <span className="font-semibold text-[#1e3a5f] bg-[#1e3a5f]/10 px-2 py-0.5 rounded">
-                            {shubuhLevelLabel}
+                            {levelLabel}
                           </span>
                         </div>
                       </div>
 
-                      {!isYanbuaShubuh ? (
+                      {!isYanbua ? (
                         <>
                           <div>
                             <label className="form-label">Jenis Setoran</label>
@@ -388,7 +440,7 @@ export default function TahfidzManagement() {
                       ) : (
                         <>
                           <div>
-                            <label className="form-label">Pilih Jilid ({shubuhLevelLabel})</label>
+                            <label className="form-label">Pilih Jilid ({levelLabel})</label>
                             <div className="relative">
                               <select className="input-field appearance-none pr-9 cursor-pointer" value={formData.surah}
                                 onChange={(e) => setFormData({ ...formData, surah: e.target.value })} required>
@@ -419,7 +471,6 @@ export default function TahfidzManagement() {
                   Pilih sesi terlebih dahulu untuk menampilkan formulir setoran.
                 </div>
               )}
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="form-label">Jenis Setoran</label>
@@ -455,7 +506,7 @@ export default function TahfidzManagement() {
         </div>
 
         {/* Riwayat */}
-        <div className="lg:col-span-3 card overflow-hidden flex flex-col min-h-[400px]">
+        <div className="lg:col-span-3 card overflow-hidden flex flex-col min-h-100">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <History size={16} className="text-slate-400" />
@@ -482,7 +533,7 @@ export default function TahfidzManagement() {
                 className="relative flex items-start gap-3 p-4 bg-slate-50/60 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-white transition-all group">
                 {/* Colored indicator */}
                 <div className={cn("absolute left-0 top-3 bottom-3 w-1 rounded-r-full", fluencyBorder(log.fluency))} />
-                <div className={cn("flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ml-1", fluencyColor(log.fluency))}>
+                <div className={cn("shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ml-1", fluencyColor(log.fluency))}>
                   <CheckCircle2 size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -492,12 +543,10 @@ export default function TahfidzManagement() {
                       <p className="text-xs text-slate-500">
                         {log.surah?.startsWith('Jilid')
                           ? (log.note ? `Materi: ${log.note}` : 'Yanbu\'a')
-                          : log.surah?.startsWith('Juz')
-                          ? `Halaman ${log.from_ayat}–${log.to_ayat}`
-                          : `Ayat ${log.from_ayat}–${log.to_ayat}`}
+                          : `Halaman ${log.from_ayat}–${log.to_ayat}`}
                       </p>
                     </div>
-                    <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 shrink-0">
                       <button onClick={() => handleOpenEdit(log)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-[#1e3a5f] hover:bg-blue-50 transition-colors">
                         <Edit2 size={13} />
@@ -522,9 +571,9 @@ export default function TahfidzManagement() {
                     <span className="text-[10px] text-slate-400 font-mono">
                       {log.session || 'Shubuh'}
                     </span>
-                    {log.session !== 'Shubuh' && log.setoran_level && (
+                    {log.setoran_level && (
                       <span className="text-[10px] text-slate-400 font-mono">
-                        {log.setoran_level === 'bilghoib' ? 'Bil Ghoib' : 'Bin Nadzhor'}
+                        {log.setoran_level === 'bilghoib' ? 'Bil Ghoib' : log.setoran_level === 'binnadzhor' ? 'Bin Nadzhor' : "Yanbu'a"}
                       </span>
                     )}
                     {!log.surah?.startsWith('Jilid') && (
@@ -550,12 +599,12 @@ export default function TahfidzManagement() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="form-label">Dari Ayat</label>
+              <label className="form-label">Dari Halaman</label>
               <input type="number" required className="input-field" value={formData.from_ayat}
                 onChange={(e) => setFormData({ ...formData, from_ayat: e.target.value })} />
             </div>
             <div>
-              <label className="form-label">Sampai Ayat</label>
+              <label className="form-label">Sampai Halaman</label>
               <input type="number" required className="input-field" value={formData.to_ayat}
                 onChange={(e) => setFormData({ ...formData, to_ayat: e.target.value })} />
             </div>
@@ -597,24 +646,7 @@ export default function TahfidzManagement() {
         </form>
       </Modal>
 
-      <Modal 
-        isOpen={confirmModal.isOpen} 
-        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
-        title={confirmModal.title}
-        className="max-w-md"
-      >
-        <div className="space-y-6">
-          <p className="text-slate-600 leading-relaxed">
-            {confirmModal.message}
-          </p>
-          <div className="flex gap-3 pt-2">
-            <button onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} className="btn-secondary flex-1">Batal</button>
-            <button onClick={confirmModal.onConfirm} className="btn-primary bg-red-600 hover:bg-red-700 text-white border-transparent flex-1">
-              {confirmModal.confirmText}
-            </button>
-          </div>
-        </div>
-      </Modal>
+
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => {}} />}
     </div>

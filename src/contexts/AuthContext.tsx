@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  role: 'admin' | 'pengajar' | 'wali' | null;
+  role: 'admin' | 'pengurus' | 'pengajar' | 'wali' | null;
   signOut: () => Promise<void>;
   isConfigured: boolean;
   sessionExpired: boolean;
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<'admin' | 'pengajar' | 'wali' | null>(null);
+  const [role, setRole] = useState<'admin' | 'pengurus' | 'pengajar' | 'wali' | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [inactivityWarning, setInactivityWarning] = useState(false);
   const roleRequestId = useRef(0);

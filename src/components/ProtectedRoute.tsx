@@ -3,11 +3,12 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
-  allowedRoles?: ('admin' | 'pengajar' | 'wali')[];
+  allowedRoles?: ('admin' | 'pengurus' | 'pengajar' | 'wali')[];
 }
 
-const roleHome: Record<'admin' | 'pengajar' | 'wali', string> = {
+const roleHome: Record<'admin' | 'pengurus' | 'pengajar' | 'wali', string> = {
   admin: '/admin',
+  pengurus: '/pengurus',
   pengajar: '/pengajar',
   wali: '/wali',
 };

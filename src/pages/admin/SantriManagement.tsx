@@ -1,12 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { dataService } from '../../services/data';
-import { Search, UserPlus, Edit2, Trash2, Filter, Loader2, X, Award, Users } from 'lucide-react';
+import { Search, UserPlus, Edit2, Trash2, Filter, Loader2, X, Award, Users, ImageIcon } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useToast } from '../../hooks/useToast';
 import { Toast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { useNavigate } from 'react-router-dom';
+
+// --- Module-level cache (bertahan antar navigasi halaman) ---
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit
+let _cache: { santri: any[]; waliList: any[]; ts: number } | null = null;
+const invalidateCache = () => { _cache = null; };
+
+// Prefetch diam-diam dari luar komponen (dipanggil dari App.tsx)
+// Menggunakan supabase & dataService yang sudah diimport di atas
+let _supabase: any = null;
+let _dataService: any = null;
+export function initPrefetchDeps(sb: any, ds: any) { _supabase = sb; _dataService = ds; }
+
+export async function prefetchSantriData() {
+  if (_cache && Date.now() - _cache.ts < CACHE_TTL_MS) return;
+  if (!_supabase || !_dataService) return; // deps belum di-set
+  try {
+    const { data: s, error } = await _supabase.from('santri')
+      .select('id, nis, name, class_name, type, tahfidz_level, wali_id, photo_url, profiles:wali_id(full_name)')
+      .order('name');
+    if (error || !s) return;
+    const w = await _dataService.getWaliList().catch(() => []);
+    _cache = { santri: s, waliList: w || [], ts: Date.now() };
+    // Preload foto ke memory cache agar foto muncul instan
+    s.forEach((item: any) => {
+      if (item.photo_url?.startsWith('http')) {
+        const img = new window.Image();
+        img.src = item.photo_url;
+      }
+    });
+  } catch { /* silent fail */ }
+}
+// -------------------------------------------------------------
 
 export default function SantriManagement() {
   const navigate = useNavigate();
@@ -15,11 +47,14 @@ export default function SantriManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Semua');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const { toast, showToast } = useToast();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentSantri, setCurrentSantri] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -30,28 +65,51 @@ export default function SantriManagement() {
 
   const [formData, setFormData] = useState({
     name: '', nis: '', type: 'Mukim',
-    wali_id: '', email: '', photo_url: '',
+    wali_id: '', photo_url: '',
     tahfidz_level: 'yanbua'
   });
 
-  useEffect(() => { fetchData(); }, []);
+  // Inisialisasi dependencies untuk prefetch dari luar komponen
+  useEffect(() => { initPrefetchDeps(supabase, dataService); fetchData(); }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
+    // Gunakan cache jika masih valid dan tidak dipaksa refresh
+    if (!force && _cache && Date.now() - _cache.ts < CACHE_TTL_MS) {
+      setSantri(_cache.santri);
+      setWaliList(_cache.waliList);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [santriData, waliData] = await Promise.all([
-        supabase.from('santri').select('*, profiles:wali_id(full_name)').order('name'),
+        supabase.from('santri').select('id, nis, name, class_name, type, tahfidz_level, wali_id, photo_url, profiles:wali_id(full_name)').order('name'),
         dataService.getWaliList()
       ]);
       if (santriData.error) throw santriData.error;
-      setSantri(santriData.data || []);
-      setWaliList(waliData || []);
+      const s = santriData.data || [];
+      const w = waliData || [];
+      // Simpan ke cache
+      _cache = { santri: s, waliList: w, ts: Date.now() };
+      setSantri(s);
+      setWaliList(w);
     } catch (error: any) {
       showToast('Gagal memuat data: ' + (error.message || 'Error tidak diketahui'), 'error');
     } finally {
       setLoading(false);
     }
   };
+
+  // Preload semua foto ke memory cache agar antar halaman instan
+  useEffect(() => {
+    if (santri.length === 0) return;
+    santri.forEach(s => {
+      if (s.photo_url && s.photo_url.startsWith('http')) {
+        const img = new window.Image();
+        img.src = s.photo_url;
+      }
+    });
+  }, [santri]);
 
   const handlePromote = (s: any) => {
     let nextLevel = '';
@@ -76,7 +134,8 @@ export default function SantriManagement() {
         try {
           await dataService.updateSantri(s.id, { ...s, tahfidz_level: nextLevel });
           showToast(`${s.name} berhasil naik tingkat!`, 'success');
-          fetchData();
+          invalidateCache();
+          fetchData(true);
         } catch (error: any) {
           showToast(error.message || 'Gagal menaikkan tingkat santri', 'error');
         }
@@ -95,7 +154,8 @@ export default function SantriManagement() {
         try {
           await dataService.deleteSantri(id);
           showToast('Data santri berhasil dihapus', 'success');
-          fetchData();
+          invalidateCache();
+          fetchData(true);
         } catch { showToast('Gagal menghapus data santri', 'error'); }
       }
     });
@@ -105,7 +165,7 @@ export default function SantriManagement() {
     if (s) {
       setCurrentSantri(s);
       setFormData({ name: s.name, nis: s.nis, type: s.type,
-        wali_id: s.wali_id || '', email: s.email || '', photo_url: s.photo_url || '',
+        wali_id: s.wali_id || '', photo_url: s.photo_url || '',
         tahfidz_level: s.tahfidz_level || 'yanbua' });
     } else {
       const nises = santri.map(x => { const m = x.nis.match(/\d+/); return m ? parseInt(m[0]) : 0; })
@@ -113,7 +173,7 @@ export default function SantriManagement() {
       const next = nises.length > 0 ? nises[0] + 1 : 1;
       setCurrentSantri(null);
       setFormData({ name: '', nis: next < 10 ? `0${next}` : `${next}`, type: 'Mukim',
-        wali_id: '', email: '', photo_url: '', tahfidz_level: 'yanbua' });
+        wali_id: '', photo_url: '', tahfidz_level: 'yanbua' });
     }
     setIsModalOpen(true);
   };
@@ -130,7 +190,8 @@ export default function SantriManagement() {
         showToast('Santri baru berhasil ditambahkan', 'success');
       }
       setIsModalOpen(false);
-      fetchData();
+      invalidateCache();
+      fetchData(true);
     } catch (error: any) {
       showToast(error.message || 'Gagal menyimpan data santri', 'error');
     } finally {
@@ -138,11 +199,14 @@ export default function SantriManagement() {
     }
   };
 
-  const filteredSantri = santri.filter(s => {
+  const filteredSantri = useMemo(() => santri.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.nis.includes(searchTerm);
     const matchesFilter = filterType === 'Semua' || s.type === filterType;
     return matchesSearch && matchesFilter;
-  });
+  }), [santri, searchTerm, filterType]);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSantri.length / PAGE_SIZE)), [filteredSantri.length]);
+  const paginatedSantri = useMemo(() => filteredSantri.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [filteredSantri, currentPage]);
 
   return (
     <div className="space-y-5">
@@ -168,7 +232,7 @@ export default function SantriManagement() {
               placeholder="Cari nama atau NIS santri..."
               className="input-field pl-10"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
           <div className="relative">
@@ -176,7 +240,7 @@ export default function SantriManagement() {
             <select
               className="input-field pl-10 pr-10 appearance-none cursor-pointer min-w-[160px]"
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
             >
               <option value="Semua">Semua Tipe</option>
               <option value="Mukim">Mukim</option>
@@ -202,27 +266,56 @@ export default function SantriManagement() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
-                <tr><td colSpan={5} className="px-5 py-12 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 size={22} className="animate-spin text-slate-300" />
-                    <span className="text-sm text-slate-400">Memuat data santri...</span>
-                  </div>
-                </td></tr>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index} className="animate-pulse">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 bg-slate-100 rounded-full flex-shrink-0"></div>
+                        <div className="space-y-1.5 flex-1">
+                          <div className="h-4 bg-slate-100 rounded w-28"></div>
+                          <div className="h-3 bg-slate-100 rounded w-16"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="h-5 bg-slate-100 rounded-full w-14"></div>
+                    </td>
+                    <td className="px-5 py-4 hidden md:table-cell">
+                      <div className="h-4 bg-slate-100 rounded w-20"></div>
+                    </td>
+                    <td className="px-5 py-4 hidden lg:table-cell">
+                      <div className="h-4 bg-slate-100 rounded w-24"></div>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex gap-2 justify-end items-center">
+                        <div className="h-5 bg-slate-100 rounded w-16"></div>
+                        <div className="h-7 bg-slate-100 rounded-lg w-7"></div>
+                        <div className="h-7 bg-slate-100 rounded-lg w-7"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : filteredSantri.length === 0 ? (
                 <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400">
                   Tidak ada data santri yang ditemukan.
                 </td></tr>
-              ) : filteredSantri.map((s) => (
+              ) : paginatedSantri.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      {s.photo_url ? (
-                        <img className="h-9 w-9 rounded-full object-cover border border-slate-100 flex-shrink-0" src={s.photo_url} alt="" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="h-9 w-9 rounded-full bg-[#1e3a5f] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                          {s.name.charAt(0)}
-                        </div>
-                      )}
+                      <div className="relative h-9 w-9 rounded-full bg-[#1e3a5f] flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden border border-slate-100">
+                        {s.name.charAt(0)}
+                        {s.photo_url && (
+                          <img 
+                            className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300" 
+                            src={s.photo_url} 
+                            alt="" 
+                            referrerPolicy="no-referrer" 
+                            loading="lazy"
+                            onLoad={(e) => e.currentTarget.classList.replace('opacity-0', 'opacity-100')} 
+                          />
+                        )}
+                      </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-800">{s.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -281,8 +374,34 @@ export default function SantriManagement() {
           </table>
         </div>
         {!loading && (
-          <div className="px-5 py-3 border-t border-slate-50 text-xs text-slate-400">
-            Menampilkan {filteredSantri.length} dari {santri.length} santri
+          <div className="px-5 py-3 border-t border-slate-50 flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs text-slate-400">
+              Menampilkan {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredSantri.length)}–{Math.min(currentPage * PAGE_SIZE, filteredSantri.length)} dari {filteredSantri.length} santri
+            </span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >← Prev</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${
+                      page === currentPage
+                        ? 'bg-[#1e3a5f] text-white'
+                        : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >{page}</button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >Next →</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -292,18 +411,18 @@ export default function SantriManagement() {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
-              <label className="form-label">Nama Lengkap</label>
-              <input type="text" required className="input-field" value={formData.name}
+              <label htmlFor="santri-name" className="form-label">Nama Lengkap</label>
+              <input id="santri-name" name="name" type="text" required className="input-field" value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <label className="form-label">NIS</label>
-              <input type="text" required className="input-field" value={formData.nis}
+              <label htmlFor="santri-nis" className="form-label">NIS</label>
+              <input id="santri-nis" name="nis" type="text" required className="input-field" value={formData.nis}
                 onChange={(e) => setFormData({ ...formData, nis: e.target.value })} />
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <label className="form-label">Tingkat / Kelas</label>
-              <select className="input-field" value={formData.tahfidz_level}
+              <label htmlFor="santri-level" className="form-label">Tingkat / Kelas</label>
+              <select id="santri-level" name="tahfidz_level" className="input-field" value={formData.tahfidz_level}
                 onChange={(e) => setFormData({ ...formData, tahfidz_level: e.target.value })}>
                 <option value="yanbua">Yanbu'a</option>
                 <option value="binnadzhor">Bin Nadzhor</option>
@@ -311,44 +430,65 @@ export default function SantriManagement() {
               </select>
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <label className="form-label">Tipe Santri</label>
-              <select className="input-field" value={formData.type}
+              <label htmlFor="santri-type" className="form-label">Tipe Santri</label>
+              <select id="santri-type" name="type" className="input-field" value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
                 <option value="Mukim">Mukim</option>
                 <option value="Non-Mukim">Non-Mukim</option>
               </select>
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <label className="form-label">Email Santri</label>
-              <input type="email" className="input-field" placeholder="Opsional" value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="form-label">Wali Santri</label>
-              <select className="input-field" value={formData.wali_id}
+              <label htmlFor="santri-wali" className="form-label">Wali Santri</label>
+              <select id="santri-wali" name="wali_id" className="input-field" value={formData.wali_id}
                 onChange={(e) => setFormData({ ...formData, wali_id: e.target.value })}>
                 <option value="">-- Pilih Wali (Opsional) --</option>
                 {waliList.map(w => <option key={w.id} value={w.id}>{w.full_name}</option>)}
               </select>
             </div>
             <div className="col-span-2">
-              <label className="form-label">Foto Santri (Dari Perangkat)</label>
+              <label htmlFor="santri-photo" className="form-label">Foto Santri (Dari Perangkat)</label>
               <div className="flex gap-3 items-center">
-                 {formData.photo_url && (
-                    <img src={formData.photo_url} alt="Preview" className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
-                 )}
-                 <input type="file" accept="image/*" className="input-field p-2 text-sm flex-1"
-                   onChange={(e) => {
-                     const file = e.target.files?.[0];
-                     if (file) {
-                       const reader = new FileReader();
-                       reader.onloadend = () => {
-                         setFormData({ ...formData, photo_url: reader.result as string });
-                       };
-                       reader.readAsDataURL(file);
-                     }
-                   }} />
+                {isUploadingPhoto ? (
+                  <div className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center bg-slate-50 flex-shrink-0">
+                    <Loader2 size={16} className="animate-spin text-slate-400" />
+                  </div>
+                ) : formData.photo_url ? (
+                  <img src={formData.photo_url} alt="Preview" className="w-10 h-10 rounded-lg object-cover border border-slate-200 flex-shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center bg-slate-50 flex-shrink-0">
+                    <ImageIcon size={16} className="text-slate-300" />
+                  </div>
+                )}
+                <input id="santri-photo" name="photo" type="file" accept="image/*"
+                  className="input-field p-2 text-sm flex-1"
+                  disabled={isUploadingPhoto}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setIsUploadingPhoto(true);
+                    try {
+                      // Upload ke Supabase Storage, simpan URL (bukan base64)
+                      const url = await dataService.uploadKontenMedia(file, 'santri');
+                      setFormData(prev => ({ ...prev, photo_url: url }));
+                    } catch {
+                      // Fallback ke base64 jika storage gagal
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setFormData(prev => ({ ...prev, photo_url: reader.result as string }));
+                      };
+                      reader.readAsDataURL(file);
+                      showToast('Upload ke storage gagal, menggunakan penyimpanan lokal', 'info');
+                    } finally {
+                      setIsUploadingPhoto(false);
+                    }
+                  }} />
               </div>
+              {formData.photo_url && (
+                <button type="button" onClick={() => setFormData(prev => ({ ...prev, photo_url: '' }))}
+                  className="mt-1.5 text-xs text-rose-500 hover:text-rose-700 flex items-center gap-1">
+                  <X size={10} /> Hapus foto
+                </button>
+              )}
             </div>
           </div>
           <div className="flex gap-2 pt-2">

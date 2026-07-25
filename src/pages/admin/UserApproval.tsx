@@ -67,19 +67,25 @@ export default function UserApproval() {
           showToast('Akun berhasil dihapus', 'success');
           fetchProfiles();
         } catch (error: any) {
-          showToast(error.message || 'Gagal menghapus akun', 'error');
+          console.error("Delete user error:", error);
+          if (error.message?.includes('function delete_user does not exist')) {
+            showToast('Fungsi hapus belum terpasang di database (Jalankan SQL Migration di Supabase)', 'error');
+          } else {
+            showToast(error.message || 'Gagal menghapus akun', 'error');
+          }
         }
       }
     });
   };
 
   const filteredProfiles = profiles.filter(p =>
-    (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
      p.email?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const roleOptions = [
     { value: 'admin', label: 'Administrator' },
+    { value: 'pengurus', label: 'Pengurus' },
     { value: 'pengajar', label: 'Pengajar' },
     { value: 'wali', label: 'Wali Santri' },
   ];
@@ -140,9 +146,9 @@ export default function UserApproval() {
                   <td className="px-5 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#1e3a5f] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {(p.name || p.email || 'U').charAt(0).toUpperCase()}
+                        {(p.full_name || p.email || 'U').charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-sm font-semibold text-slate-800">{p.name || 'Tanpa Nama'}</span>
+                      <span className="text-sm font-semibold text-slate-800">{p.full_name || 'Tanpa Nama'}</span>
                     </div>
                   </td>
                   <td className="px-5 py-4 whitespace-nowrap hidden md:table-cell">
@@ -188,7 +194,7 @@ export default function UserApproval() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleDeleteUser(p.id, p.name || p.email)}
+                      onClick={() => handleDeleteUser(p.id, p.full_name || p.email)}
                       className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-200 hover:border-red-100 rounded-lg transition-colors"
                       title="Hapus Akun"
                     >

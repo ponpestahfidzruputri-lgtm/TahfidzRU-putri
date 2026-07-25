@@ -138,7 +138,11 @@ export default function PengajarDashboard() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{item.santri?.name}</p>
-                      <p className="text-xs text-slate-500">{item.surah} • Ayat {item.from_ayat}-{item.to_ayat}</p>
+                      <p className="text-xs text-slate-500">
+                        {item.surah?.startsWith('Jilid') 
+                          ? (item.note ? `Materi: ${item.note}` : item.surah)
+                          : `${item.surah} • Halaman ${item.from_ayat}-${item.to_ayat}`}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">

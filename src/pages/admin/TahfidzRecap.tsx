@@ -62,9 +62,9 @@ export default function TahfidzRecap() {
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Santri</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase">Surah</th>
-                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Dari Ayat</th>
-                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Sampai Ayat</th>
-                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Jumlah Ayat</th>
+                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Dari Halaman</th>
+                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Sampai Halaman</th>
+                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Jumlah Halaman</th>
                   <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Jenis</th>
                   <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Skema</th>
                   <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase">Kelancaran</th>

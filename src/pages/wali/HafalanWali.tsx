@@ -127,7 +127,7 @@ export default function HafalanWali() {
                         {item.type}
                       </span>
                       <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-bold border", getSessionBadgeClass(item.session || 'Shubuh'))}>
-                        {item.session || 'Shubuh'}
+                        Sesi {item.session || 'Shubuh'}
                       </span>
                       {item.setoran_level && (
                         <span className={cn("px-2.5 py-0.5 rounded-full text-[10px] font-bold border", getLevelBadgeClass(item.setoran_level))}>
@@ -139,7 +139,7 @@ export default function HafalanWali() {
                       {!item.surah?.startsWith('Jilid') ? (
                         <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded text-xs text-slate-600 font-semibold border border-slate-100">
                           <span>
-                            {item.surah?.startsWith('Juz') ? 'Halaman' : 'Ayat'} {item.from_ayat}
+                            Halaman {item.from_ayat}
                           </span>
                           <ArrowRight size={12} className="text-slate-400" />
                           <span>{item.to_ayat}</span>

@@ -16,6 +16,7 @@ import {
   BarChart3,
   FileText,
   Image,
+  Wallet,
   TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,7 +24,7 @@ import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SidebarProps {
-  role: 'admin' | 'pengajar' | 'wali';
+  role: 'admin' | 'pengurus' | 'pengajar' | 'wali';
   onClose?: () => void;
 }
 
@@ -42,7 +43,13 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       { path: '/admin/nilai', icon: GraduationCap, label: 'Nilai Akademik' },
       { path: '/admin/agenda', icon: Calendar, label: 'Agenda Acara' },
       { path: '/admin/konten', icon: Image, label: 'Konten Website' },
+      { path: '/admin/uang-jajan', icon: Wallet, label: 'Uang Jajan' },
       { path: '/admin/approval', icon: UserCheck, label: 'Persetujuan Akun' },
+    ],
+    pengurus: [
+      { path: '/pengurus', icon: LayoutDashboard, label: 'Dasbor Pengurus' },
+      { path: '/pengurus/absensi', icon: ClipboardCheck, label: 'Presensi Jamaah' },
+      { path: '/pengurus/uang-jajan', icon: Wallet, label: 'Uang Jajan Santri' },
     ],
     pengajar: [
       { path: '/pengajar', icon: LayoutDashboard, label: 'Dasbor Kelas' },
@@ -56,12 +63,14 @@ export function Sidebar({ role, onClose }: SidebarProps) {
       { path: '/wali/absensi', icon: ClipboardCheck, label: 'Kehadiran Ananda' },
       { path: '/wali/hafalan', icon: BookOpen, label: 'Perkembangan Hafalan' },
       { path: '/wali/agenda', icon: Calendar, label: 'Jadwal Acara' },
+      { path: '/wali/uang-jajan', icon: Wallet, label: 'Uang Jajan Ananda' },
       { path: '/wali/profil', icon: Users, label: 'Profil Lengkap' },
     ]
   };
 
   const roleLabel = {
     admin: 'Administrator',
+    pengurus: 'Pengurus Pesantren',
     pengajar: 'Guru / Asatidz',
     wali: 'Wali Santri'
   };

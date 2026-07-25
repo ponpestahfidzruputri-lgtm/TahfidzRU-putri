@@ -63,6 +63,7 @@ export default function NaikkanTingkat() {
           }
 
           showToast(`Berhasil naikkan tingkat ke ${newLevel}`, 'success');
+          setSantri(prev => prev.map(s => s.id === santriId ? { ...s, tahfidz_level: newLevel } : s));
           fetchSantri();
         } catch (error: any) {
           showToast(error.message || 'Gagal naikkan tingkat', 'error');

@@ -13,7 +13,7 @@ const sanitizeSantriPayload = (data: Record<string, unknown>) => {
   const email = String(data.email || '').trim();
   if (email) payload.email = email;
   const photo = data.photo_url;
-  if (typeof photo === 'string' && photo.length > 0 && photo.length < 500_000) {
+  if (typeof photo === 'string' && photo.length > 0 && photo.length < 5_000_000) {
     payload.photo_url = photo;
   }
   return payload;

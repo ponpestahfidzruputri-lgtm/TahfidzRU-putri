@@ -2,39 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { dataService } from '../../services/data';
-import { Info, BookOpen, Clock, CheckCircle2, Award, ChevronDown, UserCircle, Calendar, MapPin } from 'lucide-react';
+import { Info, BookOpen, Clock, CheckCircle2, Award, ChevronDown, UserCircle, Calendar, MapPin, Wallet } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-
-const getSessionBadgeClass = (session: string) => {
-  switch (session) {
-    case 'Shubuh': return 'bg-amber-50 text-amber-700 border-amber-200';
-    case 'Ashar': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    case 'Isya': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    default: return 'bg-slate-50 text-slate-700 border-slate-200';
-  }
-};
-
-const getLevelBadgeClass = (level: string) => {
-  switch (level) {
-    case 'yanbua': return 'bg-teal-50 text-teal-700 border-teal-200';
-    case 'binnadzhor': return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'bilghoib': return 'bg-purple-50 text-purple-700 border-purple-200';
-    default: return 'bg-slate-50 text-slate-700 border-slate-200';
-  }
-};
-
-const getLevelLabel = (level: string) => {
-  switch (level) {
-    case 'yanbua': return "Yanbu'a";
-    case 'binnadzhor': return 'Bin Nadzhor';
-    case 'bilghoib': return 'Bil Ghoib';
-    default: return level;
-  }
-};
+import { formatRupiah } from '../../utils/format';
 
 export default function WaliDashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -43,6 +17,7 @@ export default function WaliDashboard() {
   const [selectedSantri, setSelectedSantri] = useState<any>(null);
   const [tahfidzStats, setTahfidzStats] = useState<any[]>([]);
   const [upcomingAgenda, setUpcomingAgenda] = useState<any[]>([]);
+  const [saldo, setSaldo] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,10 +34,25 @@ export default function WaliDashboard() {
       if (data && data.length > 0) {
         setSelectedSantri(data[0]);
         fetchProgres(data[0].id);
+        fetchSaldo(data[0].id);
       }
       fetchUpcomingAgenda();
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
+  };
+
+  const fetchSaldo = async (id: string) => {
+    try {
+      const transactions = await dataService.getTransactions(id);
+      const activeTransactions = transactions.filter((t: any) => t.status === 'Paid');
+      const totalMasuk = activeTransactions
+        .filter((t: any) => t.type === 'Uang Masuk')
+        .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+      const totalKeluar = activeTransactions
+        .filter((t: any) => t.type === 'Uang Keluar')
+        .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+      setSaldo(totalMasuk - totalKeluar);
+    } catch (error) { console.error(error); }
   };
 
   const fetchProgres = async (id: string) => {
@@ -96,7 +86,7 @@ export default function WaliDashboard() {
             <select className="input-field appearance-none pr-9 min-w-[200px]"
               onChange={(e) => {
                 const s = santri.find(x => x.id === e.target.value);
-                setSelectedSantri(s); fetchProgres(s.id);
+                setSelectedSantri(s); fetchProgres(s.id); fetchSaldo(s.id);
               }}>
               {santri.map(s => (
                 <option key={s.id} value={s.id}>
@@ -154,7 +144,7 @@ export default function WaliDashboard() {
             <div className="absolute top-0 right-0 w-48 md:w-64 h-48 md:h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card p-5 flex items-start gap-4">
               <div className="w-12 h-12 bg-sky-50 text-sky-500 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Clock size={20} />
@@ -178,6 +168,18 @@ export default function WaliDashboard() {
                 </h3>
               </div>
             </div>
+
+            <div className="card p-5 flex items-start gap-4 cursor-pointer hover:shadow-md transition-all" onClick={() => navigate('/wali/uang-jajan')}>
+              <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Wallet size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Saldo Uang Jajan</p>
+                <h3 className="text-lg font-bold text-slate-800">
+                  {formatRupiah(saldo)}
+                </h3>
+              </div>
+            </div>
           </div>
 
           {/* Hafalan Section */}
@@ -197,38 +199,31 @@ export default function WaliDashboard() {
                   {tahfidzStats.slice(0, 4).map((item) => (
                     <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                       className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-slate-200 transition-colors">
-                       <div className="flex items-start justify-between mb-3 gap-2">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
+                       <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
                               item.type === 'Setoran Baru' ? "bg-emerald-50 text-emerald-500" : "bg-sky-50 text-sky-500")}>
                               <CheckCircle2 size={18} />
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate">{item.surah}</p>
-                              <p className="text-xs text-slate-500 font-medium">
-                                {item.surah?.startsWith('Jilid')
-                                  ? (item.note ? `Materi: ${item.note}` : 'Yanbu\'a')
-                                  : item.surah?.startsWith('Juz')
-                                  ? `Halaman ${item.from_ayat}–${item.to_ayat}`
-                                  : `Ayat ${item.from_ayat}–${item.to_ayat}`}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border", getSessionBadgeClass(item.session || 'Shubuh'))}>
-                                  {item.session || 'Shubuh'}
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">{item.surah}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs text-slate-500">
+                                  {item.surah?.startsWith('Jilid') ? '' : `Halaman ${item.from_ayat}-${item.to_ayat}`}
                                 </span>
-                                {item.setoran_level && (
-                                  <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border", getLevelBadgeClass(item.setoran_level))}>
-                                    {getLevelLabel(item.setoran_level)}
+                                {item.session && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-slate-50 text-slate-500 border-slate-200">
+                                    Sesi {item.session}
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
-                          <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">
+                          <span className="text-[10px] text-slate-400 font-medium">
                              {format(new Date(item.created_at || '2026-01-01T00:00:00'), 'dd MMM yyyy', { locale: localeId })}
                           </span>
                        </div>
-                       {item.note && !item.surah?.startsWith('Jilid') && (
+                       {item.note && (
                          <p className="text-xs text-slate-600 italic mt-2 border-l-2 border-slate-200 pl-2">"{item.note}"</p>
                        )}
                     </motion.div>

@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Database, ExternalLink } from 'lucide-react';
+import { prefetchSantriData, initPrefetchDeps } from './pages/admin/SantriManagement';
+import { supabase } from './lib/supabase';
+import { dataService } from './services/data';
 
 // Layouts
 import { AdminLayout } from './layouts/AdminLayout';
 import { PengajarLayout } from './layouts/PengajarLayout';
 import { WaliLayout } from './layouts/WaliLayout';
+import { PengurusLayout } from './layouts/PengurusLayout';
 
 // Direct Pages
 import Home from './pages/Home';
@@ -31,6 +35,10 @@ import AgendaManagement from './pages/admin/AgendaManagement';
 import KontenManagement from './pages/admin/KontenManagement';
 import UserApproval from './pages/admin/UserApproval';
 import TahfidzDiploma from './pages/admin/TahfidzDiploma';
+import UangJajanManagement from './pages/admin/UangJajanManagement';
+
+// Pengurus Pages
+import PengurusDashboard from './pages/pengurus/PengurusDashboard';
 
 // Pengajar Pages
 import PengajarDashboard from './pages/pengajar/PengajarDashboard';
@@ -46,6 +54,7 @@ import AgendaWali from './pages/wali/AgendaWali';
 import HafalanWali from './pages/wali/HafalanWali';
 import AbsensiWali from './pages/wali/AbsensiWali';
 import IjazahWali from './pages/wali/IjazahWali';
+import UangJajanWali from './pages/wali/UangJajanWali';
 
 const SetupRequired = () => (
   <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-slate-900">
@@ -77,13 +86,50 @@ const SetupRequired = () => (
 );
 
 function AppContent() {
-  const { isConfigured } = useAuth();
+  const { isConfigured, user, profile } = useAuth();
+  const [prefetching, setPrefetching] = useState(false);
+
+  // Ambil alih splash screen dari HTML: fade-out lalu hapus dari DOM
+  useEffect(() => {
+    const splash = document.getElementById('splash');
+    if (!splash) return;
+
+    const elapsed = performance.now();
+    const MIN_DISPLAY = 1500;
+    const wait = Math.max(0, MIN_DISPLAY - elapsed);
+
+    const timer = setTimeout(() => {
+      splash.style.opacity = '0';
+      splash.addEventListener('transitionend', () => splash.remove(), { once: true });
+      // Fallback remove kalau transitionend gak fire
+      setTimeout(() => splash.remove(), 600);
+    }, wait);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Prefetch data santri di background saat admin login
+  useEffect(() => {
+    if (profile?.role === 'admin' && user) {
+      initPrefetchDeps(supabase, dataService);
+      setPrefetching(true);
+      prefetchSantriData().finally(() => setPrefetching(false));
+    }
+  }, [user, profile]);
 
   if (!isConfigured) {
     return <SetupRequired />;
   }
 
   return (
+    <>
+      {/* Badge prefetch di pojok kiri bawah */}
+      {prefetching && (
+        <div className="fixed bottom-4 left-4 z-[9999] flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-slate-200 shadow-lg rounded-full px-3.5 py-2 text-xs text-slate-500 animate-pulse pointer-events-none">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block"></span>
+          Mempersiapkan data...
+        </div>
+      )}
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -107,8 +153,18 @@ function AppContent() {
             <Route path="nilai" element={<NilaiManagement />} />
             <Route path="agenda" element={<AgendaManagement />} />
             <Route path="konten" element={<KontenManagement />} />
+            <Route path="uang-jajan" element={<UangJajanManagement />} />
             <Route path="ijazah/:id" element={<TahfidzDiploma />} />
             <Route path="approval" element={<UserApproval />} />
+          </Route>
+        </Route>
+
+        {/* Pengurus Routes */}
+        <Route element={<ProtectedRoute allowedRoles={['pengurus']} />}>
+          <Route path="/pengurus" element={<PengurusLayout />}>
+            <Route index element={<PengurusDashboard />} />
+            <Route path="absensi" element={<AbsensiManagement />} />
+            <Route path="uang-jajan" element={<UangJajanManagement />} />
           </Route>
         </Route>
 
@@ -130,6 +186,7 @@ function AppContent() {
             <Route path="hafalan" element={<HafalanWali />} />
             <Route path="absensi" element={<AbsensiWali />} />
             <Route path="agenda" element={<AgendaWali />} />
+            <Route path="uang-jajan" element={<UangJajanWali />} />
             <Route path="profil" element={<ProfilSantri />} />
             <Route path="ijazah" element={<IjazahWali />} />
           </Route>
@@ -138,6 +195,7 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </>
   );
 }
 
